@@ -1,0 +1,44 @@
+# Ignore all image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Ignore all latent data and model outputs
+*.pt
+*.npz
+*.npy
+*.pkl
+
+# Ignore training artifacts
+*.csv
+*.json
+
+# Ignore generated folders
+celeba_bald/
+celeba_beard/
+celeba_eyeglasses/
+celeba_smiling/
+celeba_blond_hair/
+celeba_samples/
+latents_bald_output/
+latents_beard_output/
+latents_eyeglasses_output/
+latents_smiling_output/
+latents_blond_hair_output/
+training_data/
+ganexplainer/
+
+# Ignore Python bytecode
+__pycache__/
+*.py[cod]
+
+# Ignore environment and build artifacts
+.venv/
+env/
+build/
+dist/
+
+# VSCode settings
+.vscode/
