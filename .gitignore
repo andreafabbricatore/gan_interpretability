@@ -15,20 +15,20 @@
 *.csv
 *.json
 
-# Ignore generated folders
-celeba_bald/
-celeba_beard/
-celeba_eyeglasses/
-celeba_smiling/
-celeba_blond_hair/
-celeba_samples/
-latents_bald_output/
-latents_beard_output/
-latents_eyeglasses_output/
-latents_smiling_output/
-latents_blond_hair_output/
-training_data/
-ganexplainer/
+# Ignore generated folders (regardless of location)
+**/celeba_bald/
+**/celeba_beard/
+**/celeba_eyeglasses/
+**/celeba_smiling/
+**/celeba_blond_hair/
+**/celeba_samples/
+**/latents_bald_output/
+**/latents_beard_output/
+**/latents_eyeglasses_output/
+**/latents_smiling_output/
+**/latents_blond_hair_output/
+**/training_data/
+**/ganexplainer/
 
 # Ignore Python bytecode
 __pycache__/
