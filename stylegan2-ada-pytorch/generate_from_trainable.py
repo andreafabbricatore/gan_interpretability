@@ -46,7 +46,7 @@ def apply_directions_to_w(w, directions, alpha=1.0):
 @click.option('--trunc', 'truncation_psi', type=float, default=1.0, show_default=True)
 @click.option('--noise-mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
 @click.option('--direction-pt', type=str, help='Path to 18-layer direction .pt file (from CLIP training)')
-@click.option('--alpha', type=float, default=3.0, help='Magnitude of directional edit')
+@click.option('--alpha', type=float, default=1.0, help='Magnitude of directional edit')
 @click.option('--outdir', type=str, required=True, help='Directory to save images')
 def generate_images(
     ctx: click.Context,
