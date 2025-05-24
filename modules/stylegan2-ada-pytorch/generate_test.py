@@ -122,18 +122,18 @@ def generate_images(
         print(w.shape)
 
         # Save original image
-        img = G.synthesis(w, noise_mode=noise_mode)
-        img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-        PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}_original.png')
+        img_original = G.synthesis(w, noise_mode=noise_mode)
+        img_original = (img_original.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
 
         # Load directions if not already loaded
         if seed_idx == 0:
-            direction_file = '../attribute_directions_svm.pt'
+            direction_file = '../../outputs/directions/svm/attribute_directions_svm.pt'
             attribute_directions = torch.load(direction_file)
             alpha = 3.0
 
         # Apply each direction and save edited image
         for attr, d in attribute_directions.items():
+            PIL.Image.fromarray(img_original[0].cpu().numpy(), 'RGB').save(f'{outdir}/{attr}/seed{seed:04d}_original.png')
             d = d.to(device)
             d = d / d.norm()
             d = d.view(1, 1, -1)  # [1, 1, 512] to match w
@@ -144,7 +144,7 @@ def generate_images(
             for kind, w_mod in zip(['more', 'less'], [w_plus, w_minus]):
                 img = G.synthesis(w_mod, noise_mode=noise_mode)
                 img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-                PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}_{kind}_{attr}.png')
+                PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/{attr}/seed{seed:04d}_{kind}_{attr}.png')
 
 
 

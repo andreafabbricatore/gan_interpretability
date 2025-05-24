@@ -95,7 +95,6 @@ def train_direction_for_target(
 def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     network_pkl = 'ffhq.pkl'
-    save_dir = 'out/train_direction'
     targets = ['blond hair', 'beard', 'smiling', 'bald', 'eyeglasses']
     seeds = list(range(50))  # start with more seeds for filtering
 
@@ -130,9 +129,9 @@ def main():
             steps=1000,
             lr=0.05,
             alpha=1.0,
-            save_dir=save_dir,
             log_interval=25,
-            patience=10
+            patience=10,
+            save_dir=f"../../outputs/training_steps/{target}"
         )
 
 if __name__ == "__main__":

@@ -69,6 +69,7 @@ def generate_images(
     directions = None
     if direction_pt:
         print(f"Loading directions from {direction_pt}")
+        direction_name = direction_pt.split('/')[-1].split('_directions.pt')[0]
         directions = torch.load(direction_pt)['directions'].to(device)  # [18, 512]
         assert directions.shape == (G.num_ws, G.w_dim), f"Expected [18, 512], got {directions.shape}"
 
@@ -82,7 +83,7 @@ def generate_images(
         # Generate original
         img_orig = G.synthesis(w, noise_mode=noise_mode)
         img_orig = (img_orig.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-        PIL.Image.fromarray(img_orig[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}_original.png')
+        PIL.Image.fromarray(img_orig[0].cpu().numpy(), 'RGB').save(f'{outdir}/{direction_name}/seed{seed:04d}_original.png')
 
         # If direction is provided, edit and generate
         if directions is not None:
@@ -92,7 +93,7 @@ def generate_images(
             for kind, w_mod in [('more', w_more), ('less', w_less)]:
                 img = G.synthesis(w_mod, noise_mode=noise_mode)
                 img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-                PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}_{kind}_edit.png')
+                PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/{direction_name}/{seed:04d}_{kind}_edit.png')
 
     print("Done.")
 
