@@ -27,12 +27,18 @@ def apply_directions_to_w(w, directions, alpha=1.0):
     Args:
         w: [1, 18, 512]
         directions: [18, 512]
-        alpha: scalar
+        alpha: scalar or [18]
     Returns:
         Modified w with directions applied
     """
     directions = directions.to(w.device)
     directions = directions / directions.norm(dim=1, keepdim=True)
+
+    if isinstance(alpha, torch.Tensor):
+        alpha = alpha.to(w.device).view(1, -1, 1)  # shape [1, 18, 1]
+    else:
+        alpha = torch.tensor(alpha, device=w.device).view(1, 1, 1)  # broadcast scalar
+
     return w + alpha * directions.unsqueeze(0)
 
 # -------------------------
@@ -70,7 +76,9 @@ def generate_images(
     if direction_pt:
         print(f"Loading directions from {direction_pt}")
         direction_name = direction_pt.split('/')[-2]
-        directions = torch.load(direction_pt)['directions'].to(device)  # [18, 512]
+        direction_data = torch.load(direction_pt)
+        directions = direction_data['directions'].to(device)
+        alphas = direction_data.get('alphas', torch.ones(G.num_ws, device=device) * alpha)
         assert directions.shape == (G.num_ws, G.w_dim), f"Expected [18, 512], got {directions.shape}"
 
     label = torch.zeros([1, G.c_dim], device=device)
@@ -88,8 +96,9 @@ def generate_images(
 
         # If direction is provided, edit and generate
         if directions is not None:
-            w_more = apply_directions_to_w(w, directions, alpha=alpha)
-            w_less = apply_directions_to_w(w, directions, alpha=-alpha)
+            w_more = apply_directions_to_w(w, directions, alpha=alphas)
+            w_less = apply_directions_to_w(w, directions, alpha=-alphas)
+
 
             for kind, w_mod in [('more', w_more), ('less', w_less)]:
                 img = G.synthesis(w_mod, noise_mode=noise_mode)
