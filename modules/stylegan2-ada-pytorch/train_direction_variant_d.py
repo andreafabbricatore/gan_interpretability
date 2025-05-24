@@ -95,6 +95,7 @@ def train_direction_for_target(
 
             # Total loss
             loss = loss_attr + lambda_id * loss_id
+            print(loss_attr, loss_id)
             loss.backward()
             total_loss += loss.item()
 
@@ -133,9 +134,10 @@ def train_direction_for_target(
 @click.option('--alpha', default=1.0, help='Alpha value for direction application')
 @click.option('--log-interval', default=25, help='Interval for logging progress')
 @click.option('--patience', default=10, help='Patience for early stopping')
-@click.option('--save-dir', default='../../outputs/training_steps_variant_d/', help='Directory to save results')
+@click.option('--save-dir', default='../../outputs/training_steps_variant_dtest/', help='Directory to save results')
 @click.option('--top-k', default=5, help='Number of top samples to keep after filtering')
-def main(network_pkl, targets, seeds, steps, lr, alpha, log_interval, patience, save_dir, top_k):
+@click.option('--lambda-id', default=0.8, help='Lambda value for identity preservation')
+def main(network_pkl, targets, seeds, steps, lr, alpha, log_interval, patience, save_dir, top_k, lambda_id):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     # Parse targets and seeds
@@ -185,7 +187,8 @@ def main(network_pkl, targets, seeds, steps, lr, alpha, log_interval, patience, 
             alpha=alpha,
             log_interval=log_interval,
             patience=patience,
-            save_dir=save_dir
+            save_dir=save_dir,
+            lambda_id=lambda_id
         )
 
 if __name__ == "__main__":
