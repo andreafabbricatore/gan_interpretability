@@ -7,7 +7,7 @@ import numpy as np
 from typing import List
 from torchvision.transforms import Normalize, Resize, Compose
 from torchvision.utils import save_image
-from generate_trainable import generate_image_from_w
+from generate_trainable_new import generate_image_from_w
 from PIL import Image
 
 def load_generator(network_pkl, device='cuda'):
@@ -34,6 +34,7 @@ def train_direction_for_target(
     G,
     clip_model,
     w_list: List[torch.Tensor],
+    img_list: List[torch.Tensor],
     target_text,
     steps=1000,
     lr=0.05,
@@ -47,9 +48,19 @@ def train_direction_for_target(
     target_path = os.path.join(save_dir, target_slug)
     os.makedirs(target_path, exist_ok=True)
 
-    directions = torch.randn(G.num_ws, G.w_dim, device=device, requires_grad=True)
-    optimizer = torch.optim.Adam([directions], lr=lr)
-    tokens = clip.tokenize([target_text]).to(device)
+    directions = torch.nn.Parameter(torch.randn(G.num_ws, G.w_dim, device=device))
+    alphas = torch.nn.Parameter(torch.ones(G.num_ws, device=device) * alpha)
+    optimizer = torch.optim.Adam([directions, alphas], lr=lr)
+
+    targets = []
+    for img in img_list:
+        clip_img = preprocess_for_clip(img).to(device)
+        with torch.no_grad():
+            image_embed = clip_model.encode_image(clip_img).float()
+            image_embed = image_embed / image_embed.norm(dim=-1, keepdim=True)
+            targets.append(image_embed.squeeze(0))
+
+    targets = torch.stack(targets, dim=0)  # shape: [N, 512]
 
     best_loss = float('inf')
     best_directions = None
@@ -59,11 +70,14 @@ def train_direction_for_target(
     for step in range(steps):
         optimizer.zero_grad()
         total_loss = 0.0
-        for w in w_list:
-            img, _ = generate_image_from_w(G, w, directions, alpha=alpha)
+        for i, w in enumerate(w_list):
+            img, _ = generate_image_from_w(G, w, directions, alpha=alphas)
             clip_img = preprocess_for_clip(img).to(device)
-            logits_per_image, _ = clip_model(clip_img, tokens)
-            loss = -logits_per_image.mean()
+            image_embed = clip_model.encode_image(clip_img).float()
+            image_embed = image_embed / image_embed.norm(dim=-1, keepdim=True)
+
+            target_embed = targets[i]
+            loss = torch.nn.functional.mse_loss(image_embed, target_embed)
             loss.backward()
             total_loss += loss.item()
 
@@ -89,49 +103,56 @@ def train_direction_for_target(
         final_np = ((best_img.clamp(-1, 1) + 1) * 127.5).permute(0, 2, 3, 1).to(torch.uint8).cpu().numpy()
         Image.fromarray(final_np[0]).save(os.path.join(target_path, 'final_result.png'))
 
-    torch.save({'directions': best_directions.cpu()}, os.path.join(target_path, 'directions.pt'))
+    torch.save({'directions': best_directions.cpu(), 'alphas': alphas.detach().cpu()}, os.path.join(target_path, 'directions.pt'))
     print(f"[{target_text}] Done. Saved to: {target_path}")
 
 def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     network_pkl = 'ffhq.pkl'
     targets = ['blond hair', 'beard', 'smiling', 'bald', 'eyeglasses']
-    seeds = list(range(50))  # start with more seeds for filtering
+    seeds = list(range(50))
 
     G = load_generator(network_pkl, device)
     clip_model, _ = clip.load("ViT-B/32", device=device)
     clip_model.eval()
 
     filtered_w_lists = {}
+    filtered_img_lists = {}
+
     for target in targets:
         tokens = clip.tokenize([target]).to(device)
         scores = []
         w_pool = [sample_w(G, seed=seed, device=device) for seed in seeds]
+
         with torch.no_grad():
             for w in w_pool:
                 img, _ = generate_image_from_w(G, w, directions=None, alpha=0.0)
-                clip_img = preprocess_for_clip(img).to(device)
+                clip_img = preprocess_for_clip(img)  # shape [3, 224, 224]
+                clip_img = clip_img.to(device)  # shape [1, 3, 224, 224]
                 logits_per_image, _ = clip_model(clip_img, tokens)
                 score = logits_per_image.item()
-                scores.append((score, w))
+                scores.append((score, w, img))
 
-        # sort by lowest similarity and keep bottom-k
         scores.sort(key=lambda x: x[0])
-        w_list = [w for _, w in scores[:5]]
+        top_k = 5
+        w_list = [w for _, w, _ in scores[:top_k]]
+        img_list = [img for _, _, img in scores[:top_k]]
         filtered_w_lists[target] = w_list
+        filtered_img_lists[target] = img_list
 
     for target in targets:
         train_direction_for_target(
             G=G,
             clip_model=clip_model,
             w_list=filtered_w_lists[target],
+            img_list=filtered_img_lists[target],
             target_text=target,
             steps=1000,
             lr=0.05,
             alpha=1.0,
             log_interval=25,
             patience=10,
-            save_dir=f"../../outputs/training_steps/"
+            save_dir=f"../../outputs/training_steps_new2/"
         )
 
 if __name__ == "__main__":

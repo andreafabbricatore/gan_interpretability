@@ -7,7 +7,7 @@ import numpy as np
 from typing import List
 from torchvision.transforms import Normalize, Resize, Compose
 from torchvision.utils import save_image
-from generate_trainable import generate_image_from_w
+from generate_trainable_new import generate_image_from_w
 from PIL import Image
 
 def load_generator(network_pkl, device='cuda'):
@@ -47,13 +47,10 @@ def train_direction_for_target(
     target_path = os.path.join(save_dir, target_slug)
     os.makedirs(target_path, exist_ok=True)
 
-    directions = torch.randn(G.num_ws, G.w_dim, device=device, requires_grad=True)
-    optimizer = torch.optim.Adam([directions], lr=lr)
-    text_tokens = clip.tokenize([target_text]).to(device)
-
-    with torch.no_grad():
-        text_embed = clip_model.encode_text(text_tokens).float()  # (1, 512)
-        text_embed = text_embed / text_embed.norm(dim=-1, keepdim=True)
+    directions = torch.nn.Parameter(torch.randn(G.num_ws, G.w_dim, device=device))
+    alphas = torch.nn.Parameter(torch.ones(G.num_ws, device=device) * alpha)
+    optimizer = torch.optim.Adam([directions, alphas], lr=lr)
+    tokens = clip.tokenize([target_text]).to(device)
 
     best_loss = float('inf')
     best_directions = None
@@ -64,22 +61,10 @@ def train_direction_for_target(
         optimizer.zero_grad()
         total_loss = 0.0
         for w in w_list:
-            with torch.no_grad():
-                img_before, _ = generate_image_from_w(G, w, directions=None, alpha=0.0)
-                clip_img_before = preprocess_for_clip(img_before).to(device)
-                image_embed_before = clip_model.encode_image(clip_img_before).float()
-                image_embed_before = image_embed_before / image_embed_before.norm(dim=-1, keepdim=True)
-
-                # Compute target embedding
-                target_embed = image_embed_before + text_embed
-                target_embed = target_embed / target_embed.norm(dim=-1, keepdim=True)
-
-            img_after, _ = generate_image_from_w(G, w, directions, alpha=alpha)
-            clip_img_after = preprocess_for_clip(img_after).to(device)
-            image_embed_after = clip_model.encode_image(clip_img_after).float()
-            image_embed_after = image_embed_after / image_embed_after.norm(dim=-1, keepdim=True)
-
-            loss = torch.nn.functional.mse_loss(image_embed_after, target_embed)
+            img, _ = generate_image_from_w(G, w, directions, alpha=alpha)
+            clip_img = preprocess_for_clip(img).to(device)
+            logits_per_image, _ = clip_model(clip_img, tokens)
+            loss = -logits_per_image.mean()
             loss.backward()
             total_loss += loss.item()
 
@@ -88,12 +73,12 @@ def train_direction_for_target(
 
         if step % log_interval == 0 or step == steps - 1:
             print(f"[{target_text}] Step {step}/{steps} | Avg Loss: {avg_loss:.4f}")
-            save_image((img_after.clamp(-1, 1) + 1) / 2, os.path.join(target_path, f'step{step}.png'))
+            save_image((img.clamp(-1, 1) + 1) / 2, os.path.join(target_path, f'step{step}.png'))
 
         if avg_loss < best_loss - 1e-4:
             best_loss = avg_loss
             best_directions = directions.detach().clone()
-            best_img = img_after.detach().clone()
+            best_img = img.detach().clone()
             patience_counter = 0
         else:
             patience_counter += 1
@@ -105,7 +90,7 @@ def train_direction_for_target(
         final_np = ((best_img.clamp(-1, 1) + 1) * 127.5).permute(0, 2, 3, 1).to(torch.uint8).cpu().numpy()
         Image.fromarray(final_np[0]).save(os.path.join(target_path, 'final_result.png'))
 
-    torch.save({'directions': best_directions.cpu()}, os.path.join(target_path, 'directions.pt'))
+    torch.save({'directions': best_directions.cpu(), 'alphas': alphas.detach().cpu()}, os.path.join(target_path, 'directions.pt'))
     print(f"[{target_text}] Done. Saved to: {target_path}")
 
 def main():
@@ -147,7 +132,7 @@ def main():
             alpha=1.0,
             log_interval=25,
             patience=10,
-            save_dir=f"../../outputs/training_steps/{target}"
+            save_dir=f"../../outputs/training_steps_new/"
         )
 
 if __name__ == "__main__":
