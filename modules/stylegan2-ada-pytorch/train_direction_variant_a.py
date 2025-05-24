@@ -3,6 +3,7 @@ import torch
 import clip
 import dnnlib
 import legacy
+import click
 import numpy as np
 from typing import List
 from torchvision.transforms import Normalize, Resize, Compose
@@ -92,11 +93,27 @@ def train_direction_for_target(
     torch.save({'directions': best_directions.cpu()}, os.path.join(target_path, 'directions.pt'))
     print(f"[{target_text}] Done. Saved to: {target_path}")
 
-def main():
+@click.command()
+@click.option('--network', 'network_pkl', default='ffhq.pkl', help='Network pickle filename')
+@click.option('--targets', default='blond hair,beard,smiling,bald,eyeglasses', help='Comma-separated list of target attributes')
+@click.option('--seeds', default='0-49', help='Range of seeds to use (e.g. 0-49)')
+@click.option('--steps', default=1000, help='Number of training steps')
+@click.option('--lr', default=0.05, help='Learning rate')
+@click.option('--alpha', default=1.0, help='Alpha value for direction application')
+@click.option('--log-interval', default=25, help='Interval for logging progress')
+@click.option('--patience', default=10, help='Patience for early stopping')
+@click.option('--save-dir', default='../../outputs/training_steps_variant_a/', help='Directory to save results')
+@click.option('--top-k', default=5, help='Number of top samples to keep after filtering')
+def main(network_pkl, targets, seeds, steps, lr, alpha, log_interval, patience, save_dir, top_k):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    network_pkl = 'ffhq.pkl'
-    targets = ['blond hair', 'beard', 'smiling', 'bald', 'eyeglasses']
-    seeds = list(range(50))  # start with more seeds for filtering
+    
+    # Parse targets and seeds
+    targets = [t.strip() for t in targets.split(',')]
+    if '-' in seeds:
+        start, end = map(int, seeds.split('-'))
+        seeds = list(range(start, end + 1))
+    else:
+        seeds = [int(s) for s in seeds.split(',')]
 
     G = load_generator(network_pkl, device)
     clip_model, _ = clip.load("ViT-B/32", device=device)
@@ -117,7 +134,7 @@ def main():
 
         # sort by lowest similarity and keep bottom-k
         scores.sort(key=lambda x: x[0])
-        w_list = [w for _, w in scores[:5]]
+        w_list = [w for _, w in scores[:top_k]]
         filtered_w_lists[target] = w_list
 
     for target in targets:
@@ -126,12 +143,12 @@ def main():
             clip_model=clip_model,
             w_list=filtered_w_lists[target],
             target_text=target,
-            steps=1000,
-            lr=0.05,
-            alpha=1.0,
-            log_interval=25,
-            patience=10,
-            save_dir=f"../../outputs/training_steps_variant_a/"
+            steps=steps,
+            lr=lr,
+            alpha=alpha,
+            log_interval=log_interval,
+            patience=patience,
+            save_dir=save_dir
         )
 
 if __name__ == "__main__":
