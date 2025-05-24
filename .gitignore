@@ -1,34 +1,6 @@
-# Ignore all image files
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.webp
-
-# Ignore all latent data and model outputs
-*.pt
-*.npz
-*.npy
-*.pkl
-
-# Ignore training artifacts
-*.csv
-*.json
-
-# Ignore generated folders (regardless of location)
-**/celeba_bald/
-**/celeba_beard/
-**/celeba_eyeglasses/
-**/celeba_smiling/
-**/celeba_blond_hair/
-**/celeba_samples/
-**/latents_bald_output/
-**/latents_beard_output/
-**/latents_eyeglasses_output/
-**/latents_smiling_output/
-**/latents_blond_hair_output/
-**/training_data/
 **/ganexplainer/
+modules/stylegan2-ada-pytorch/ffhq.pkl
+modules/encoder4editing/checkpoints/e4e_ffhq_encode.pt
 
 # Ignore Python bytecode
 __pycache__/
