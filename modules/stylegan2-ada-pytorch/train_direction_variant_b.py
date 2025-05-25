@@ -11,6 +11,7 @@ from generate_trainable_alphas import generate_image_from_w
 from PIL import Image
 import click
 
+
 def load_generator(network_pkl, device='cuda'):
     """
     Load a pre-trained StyleGAN2 generator from a pickle file.

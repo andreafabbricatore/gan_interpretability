@@ -12,11 +12,9 @@ This repository presents a flexible and interpretable framework for manipulating
 ├── modules/                         # External dependencies and model code
 │   └── stylegan2-ada-pytorch/       # NVIDIA's StyleGAN2-ADA (with our modifications)
 │
-├── outputs/                         # Generated outputs and visualizations
-│   ├── inference/                   # Results from applying learned directions to test images
-│   └── training_steps_*/            # Intermediate training artifacts and final latent directions
-│
-└── ganexplainer/                    # Virtual environment for managing project dependencies
+└── outputs/                         # Generated outputs and visualizations
+    ├── inference/                   # Results from applying learned directions to test images
+    └── training_steps_*/            # Intermediate training artifacts and final latent directions
 
 ````
 
