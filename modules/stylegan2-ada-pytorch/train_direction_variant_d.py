@@ -13,11 +13,33 @@ import click
 
 
 def load_generator(network_pkl, device='cuda'):
+    """
+    Load a pre-trained StyleGAN2 generator from a pickle file.
+    
+    Args:
+        network_pkl (str): Path to the network pickle file
+        device (str): Device to load the model on ('cuda' or 'cpu')
+    
+    Returns:
+        torch.nn.Module: The loaded generator model
+    """
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)
     return G
 
 def sample_w(G, seed=42, trunc=0.7, device='cuda'):
+    """
+    Sample a latent vector w from the generator's latent space.
+    
+    Args:
+        G: StyleGAN2 generator
+        seed (int): Random seed for reproducibility
+        trunc (float): Truncation psi value
+        device (str): Device to use
+    
+    Returns:
+        torch.Tensor: Sampled latent vector w
+    """
     z = torch.from_numpy(np.random.RandomState(seed).randn(1, G.z_dim)).to(device)
     label = torch.zeros([1, G.c_dim], device=device)
     w = G.mapping(z, label, truncation_psi=trunc)
@@ -25,6 +47,15 @@ def sample_w(G, seed=42, trunc=0.7, device='cuda'):
     return w
 
 def preprocess_for_clip(img_tensor):
+    """
+    Preprocess an image tensor for CLIP model input.
+    
+    Args:
+        img_tensor (torch.Tensor): Input image tensor in range [-1, 1]
+    
+    Returns:
+        torch.Tensor: Preprocessed image tensor
+    """
     transform = Compose([
         Resize((224, 224)),
         Normalize((0.48145466, 0.4578275, 0.40821073),
@@ -36,7 +67,6 @@ def train_direction_for_target(
     G,
     clip_model,
     w_list: List[torch.Tensor],
-    img_list: List[torch.Tensor],
     target_text,
     steps=1000,
     lr=0.05,
@@ -46,6 +76,22 @@ def train_direction_for_target(
     lambda_id=0.8,
     save_dir="out/train_direction"
 ):
+    """
+    Train a semantic direction for a specific target attribute.
+    
+    Args:
+        G: StyleGAN2 generator
+        clip_model: CLIP model for text-image similarity
+        w_list: List of latent vectors to train on
+        target_text (str): Target attribute text description
+        steps (int): Number of training steps
+        lr (float): Learning rate
+        alpha (float): Initial alpha value for direction application
+        log_interval (int): Interval for logging progress
+        patience (int): Early stopping patience
+        lambda_id (float): Weight for identity preservation loss
+        save_dir (str): Directory to save results
+    """
     device = clip_model.visual.conv1.weight.device
     target_slug = target_text.replace(" ", "_")
     target_path = os.path.join(save_dir, target_slug)
@@ -138,6 +184,22 @@ def train_direction_for_target(
 @click.option('--top-k', default=5, help='Number of top samples to keep after filtering')
 @click.option('--lambda-id', default=0.8, help='Lambda value for identity preservation')
 def main(network_pkl, targets, seeds, steps, lr, alpha, log_interval, patience, save_dir, top_k, lambda_id):
+    """
+    Main function to train semantic directions for multiple target attributes.
+    
+    Args:
+        network_pkl (str): Path to the StyleGAN2 network pickle file
+        targets (str): Comma-separated list of target attributes
+        seeds (str): Range or list of seeds to use
+        steps (int): Number of training steps
+        lr (float): Learning rate
+        alpha (float): Initial alpha value
+        log_interval (int): Interval for logging progress
+        patience (int): Early stopping patience
+        save_dir (str): Directory to save results
+        top_k (int): Number of top samples to keep after filtering
+        lambda_id (float): Weight for identity preservation loss
+    """
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     # Parse targets and seeds
@@ -148,12 +210,13 @@ def main(network_pkl, targets, seeds, steps, lr, alpha, log_interval, patience, 
     else:
         seeds = [int(s) for s in seeds.split(',')]
 
+    # Load models
     G = load_generator(network_pkl, device)
     clip_model, _ = clip.load("ViT-B/32", device=device)
     clip_model.eval()
 
+    # Filter and prepare latent vectors for each target
     filtered_w_lists = {}
-    filtered_img_lists = {}
 
     for target in targets:
         tokens = clip.tokenize([target]).to(device)
@@ -169,18 +232,16 @@ def main(network_pkl, targets, seeds, steps, lr, alpha, log_interval, patience, 
                 score = logits_per_image.item()
                 scores.append((score, w, img))
 
+        # sort by lowest similarity and keep bottom-k
         scores.sort(key=lambda x: x[0])
         w_list = [w for _, w, _ in scores[:top_k]]
-        img_list = [img for _, _, img in scores[:top_k]]
         filtered_w_lists[target] = w_list
-        filtered_img_lists[target] = img_list
 
     for target in targets:
         train_direction_for_target(
             G=G,
             clip_model=clip_model,
             w_list=filtered_w_lists[target],
-            img_list=filtered_img_lists[target],
             target_text=target,
             steps=steps,
             lr=lr,
