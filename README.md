@@ -1,96 +1,54 @@
 # StyleGAN Interpretability: Disentangling Facial Attributes
 
-This repository implements a hybrid framework for discovering and manipulating interpretable directions in StyleGAN2's latent space, combining supervised, unsupervised, and CLIP-guided approaches for facial attribute editing.
+This repository presents a flexible and interpretable framework for manipulating facial attributes in StyleGAN2’s latent space using CLIP-guided optimization. Our goal is to enable fine-grained, localized edits of facial features through semantically meaningful latent directions.
 
-## Overview
-
-The project provides a comprehensive toolkit for:
-- Supervised discovery of disentangled directions using SVM classifiers
-- Unsupervised PCA-based direction discovery inspired by GANSpace
-- CLIP-guided optimization for flexible attribute manipulation
-- Localized and interpretable editing of facial attributes
+---
 
 ## Project Structure
 
 ```
+
 .
-├── data/                           # Dataset and training data storage
-│   ├── celeba/                     # CelebA dataset images and annotations
-│   ├── svm_training_data/          # Preprocessed data for SVM training
-│   └── feature_based/              # Feature-based data splitting
+├── modules/                         # External dependencies and model code
+│   └── stylegan2-ada-pytorch/       # NVIDIA's StyleGAN2-ADA (with our modifications)
 │
-├── modules/                        # External dependencies and model implementations
-│   ├── stylegan2-ada-pytorch/      # NVIDIA's StyleGAN2-ADA implementation (with our modifications)
-│   └── encoder4editing/            # E4E encoder for latent space projection
+├── outputs/                         # Generated outputs and visualizations
+│   ├── inference/                   # Results from applying learned directions to test images
+│   └── training_steps_*/            # Intermediate training artifacts and final latent directions
 │
-├── notebooks/                      # Interactive development and analysis
-│   ├── dataset.ipynb              # Dataset preparation and preprocessing
-│   ├── training.ipynb             # Model training and direction discovery
-│   └── inference.ipynb            # Interactive inference and visualization
-│
-├── outputs/                        # Generated results and visualizations
-│   ├── directions/                # Discovered latent directions for each attribute
-│   ├── inference/                 # Results from applying directions to images
-│   ├── latents/                   # Generated and processed latent codes
-│   └── training_steps/            # Intermediate results during training
-│
-└── ganexplainer/                  # Virtual Environment for project dependencies
-```
+└── ganexplainer/                    # Virtual environment for managing project dependencies
 
-### Detailed Component Descriptions
+````
 
-#### Data Directory
-- **celeba/**: Contains the CelebA dataset images and attribute annotations used for training and evaluation
-- **svm_training_data/**: Stores preprocessed latent codes and attribute labels for SVM training
-- **feature_based/**: Contains results from feature-based analysis of discovered directions
+---
 
-#### Modules Directory
-- **stylegan2-ada-pytorch/**: NVIDIA's official StyleGAN2-ADA implementation, used as the base generative model
-- **encoder4editing/**: E4E encoder implementation for projecting real images into the StyleGAN2 latent space
+## Our modifications
 
-#### Notebooks Directory
-- **dataset.ipynb**: Handles dataset preparation, including:
-  - CelebA dataset loading and preprocessing
-  - Attribute annotation processing
-  - Latent code generation for training data
-- **training.ipynb**: Implements the core training procedures:
-  - SVM classifier training for supervised direction discovery
-  - PCA-based unsupervised direction discovery
-  - CLIP-guided optimization setup
-- **inference.ipynb**: Provides interactive tools for:
-  - Loading and applying discovered directions
-  - Real-time attribute editing
-  - Result visualization and comparison
+In the stylegan2-ada-pytorch/ folder the following files were edited by us:
+- generate_trainable.py - auxiliary function to allow training of directions (used by train_direction_variant_a and train_direction_variant_c)
+- generate_trainable_alphas.py  - auxiliary function to allow training of directions (used by train_direction_variant_b and train_direction_variant_d)
+- generate_from_trainable.py - auxiliary function to allow inference (version where only directions are edited)
+- generate_from_trainable_alphas.py - auxiliary function to allow inference (version where alphas and directions are edited)
 
-#### Outputs Directory
-- **directions/**: Stores discovered latent directions for each attribute
-- **inference/**: Contains results from applying discovered directions to images
-- **latents/**: Stores generated and processed latent codes
-- **training_steps/**: Contains intermediate results and checkpoints during the training process
+- train_direction_variant_a.py (as explained in paper)
+- train_direction_variant_b.py (as explained in paper)
+- train_direction_variant_c.py (as explained in paper)
+- train_direction_variant_d.py (as explained in paper)
 
-## Setup
+## Setup Instructions
 
-1. Setup virtual environment:
-```bash
-source ganexplainer/bin/activate
-```
+1. Install dependencies
 
-3. Download pre-trained models:
-- StyleGAN2-ADA model
-- E4E encoder
-- CLIP model
+    ```bash
+    pip install -r requirements.txt
+    ````
 
-## Features
+2. Download the FFHQ weights from the official NVIDIA release:
 
-- **Supervised Learning**: Train SVM classifiers on W+ latent codes to discover attribute-specific directions
-- **Unsupervised Analysis**: Extract principal components from layer activations for semantic variations
-- **CLIP Integration**: Use CLIP for flexible, text-guided attribute manipulation
-- **Localized Editing**: Precise control over facial attributes with minimal interference
-- **Visualization Tools**: Interactive notebooks for exploring and visualizing latent directions
+   [https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/ffhq.pkl](https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/ffhq.pkl)
 
-## Acknowledgments
+   Place the file inside:
 
-- StyleGAN2-ADA implementation from NVIDIA
-- E4E encoder implementation
-- CLIP model from OpenAI
-- GANSpace for inspiration on unsupervised direction discovery
+   ```
+   modules/stylegan2-ada-pytorch/
+   ```

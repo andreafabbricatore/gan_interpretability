@@ -15,6 +15,15 @@ import legacy
 # -------------------------
 
 def num_range(s: str) -> List[int]:
+    """Parse a string input into a list of integers.
+    
+    The input can be either:
+    - A comma-separated list of numbers (e.g. '1,2,3')
+    - A range of numbers (e.g. '1-3')
+    
+    Returns:
+        List[int]: List of parsed integers
+    """
     range_re = re.compile(r'^(\d+)-(\d+)$')
     m = range_re.match(s)
     if m:
@@ -40,7 +49,6 @@ def apply_directions_to_w(w, directions, alpha=1.0):
 # -------------------------
 
 @click.command()
-@click.pass_context
 @click.option('--network', 'network_pkl', required=True, help='Network pickle filename')
 @click.option('--seeds', type=num_range, required=True, help='List of random seeds')
 @click.option('--trunc', 'truncation_psi', type=float, default=1.0, show_default=True)
@@ -49,7 +57,6 @@ def apply_directions_to_w(w, directions, alpha=1.0):
 @click.option('--alpha', type=float, default=1.0, help='Magnitude of directional edit')
 @click.option('--outdir', type=str, required=True, help='Directory to save images')
 def generate_images(
-    ctx: click.Context,
     network_pkl: str,
     seeds: List[int],
     truncation_psi: float,
@@ -58,6 +65,29 @@ def generate_images(
     alpha: float,
     outdir: str
 ):
+    """Generate images using pretrained StyleGAN2 network with optional attribute editing.
+
+    This function generates images from random seeds using a pretrained StyleGAN2 network.
+    If a direction file is provided, it will also generate edited versions of each image
+    by applying the learned attribute directions with both positive and negative alpha values.
+
+    Args:
+        network_pkl (str): Path to pretrained StyleGAN2 network pickle file
+        seeds (List[int]): List of random seeds to generate images from
+        truncation_psi (float): Truncation psi value for latent space sampling
+        noise_mode (str): Noise mode for image generation ('const', 'random', or 'none')
+        direction_pt (Optional[str]): Path to .pt file containing learned attribute directions
+        alpha (float): Magnitude of directional edit to apply
+        outdir (str): Directory to save generated images
+
+    The function will:
+    1. Load the pretrained StyleGAN2 generator
+    2. For each seed:
+        - Generate the original image
+        - If directions are provided, generate edited versions with +alpha and -alpha
+    3. Save all images to the specified output directory
+    """
+    
     print(f'Loading network from "{network_pkl}"...')
     device = torch.device('cuda')
     with dnnlib.util.open_url(network_pkl) as f:
@@ -69,7 +99,7 @@ def generate_images(
     directions = None
     if direction_pt:
         print(f"Loading directions from {direction_pt}")
-        direction_name = direction_pt.split('/')[-1].split('_directions.pt')[0]
+        direction_name = direction_pt.split('/')[-2]
         directions = torch.load(direction_pt)['directions'].to(device)  # [18, 512]
         assert directions.shape == (G.num_ws, G.w_dim), f"Expected [18, 512], got {directions.shape}"
 
@@ -83,6 +113,7 @@ def generate_images(
         # Generate original
         img_orig = G.synthesis(w, noise_mode=noise_mode)
         img_orig = (img_orig.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+        os.makedirs(f'{outdir}/{direction_name}', exist_ok=True)
         PIL.Image.fromarray(img_orig[0].cpu().numpy(), 'RGB').save(f'{outdir}/{direction_name}/seed{seed:04d}_original.png')
 
         # If direction is provided, edit and generate
